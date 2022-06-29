@@ -484,7 +484,7 @@ Instead of using docker commands, you can use `docker-compose` which is a tool f
 * (l.1) Have a look at [docker-compose.yml](docker-compose.yml). Try to figure out what means each section.
 
  
-* (l.2) Run an InterSystems IRIS container using the [docker-compose.yml](docker-compose.yml) configuration in a detached mode.
+* (l.2) Run an InterSystems IRIS container using the [docker-compose.yml](docker-compose.yml) configuration in a detached mode. If you are running Docker on Windows please, un-comment the `command` section to avoid errors with the checking of Linux capabilities.
 
 ```
 docker-compose up -d

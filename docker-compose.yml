@@ -1,13 +1,14 @@
-version: '3.2'
+version: '3.3'
 
 services:
   iris:
-    image: store/intersystems/irishealth-community:2021.1.0.205.0
+    image: store/intersystems/irishealth-community:2021.2.0.649.0
     container_name: irishealth
     ports:
     - "1972:1972"
     - "52773:52773"
     volumes:
     - ./shared:/shared
+    #command: --check-caps false
     #environment:
     #- ISC_DATA_DIRECTORY=/shared/durable
