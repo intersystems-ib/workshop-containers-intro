@@ -2,7 +2,7 @@ version: '3.3'
 
 services:
   iris:
-    image: store/intersystems/irishealth-community:2021.2.0.649.0
+    image: containers.intersystems.com/intersystems/iris:2022.1.0.209.0
     container_name: irishealth
     ports:
     - "1972:1972"
