@@ -3,4 +3,4 @@ FROM node:18-slim
 COPY server.js . 
 
 # Run the following default command when container is run 
-CMD node server.js
+CMD ["node", "server.js"]

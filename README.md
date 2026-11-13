@@ -489,13 +489,13 @@ Instead of using docker commands, you can use `docker-compose` which is a tool f
 ```
 docker-compose up -d
 Creating network "workshop-containers_default" with the default driver
-Creating irishealth ... done
+Creating iris ... done
 ```
 
 * (l.3) Have a look at the IRIS container logs:
 
 ```
-docker logs irishealth
+docker logs iris
 [INFO] Starting ISC Agent with command "/home/irisowner/irissys/startISCAgent.sh 2188"
 Writing status to file: /home/irisowner/irissys/iscagent.status
 Reading configuration from file: /home/irisowner/irissys/iscagent.conf
@@ -519,7 +519,7 @@ Starting IRIS
 * (l.5) Access IRIS using Terminal
 
 ```
-docker exec -it irishealth bash
+docker exec -it iris bash
 irisowner@1281cd6efb0c:~$ iris session iris
 
 Node: 1281cd6efb0c, Instance: IRIS
@@ -531,7 +531,7 @@ USER>
 
 ```
 docker-compose down
-Removing irishealth ... done
+Removing iris ... done
 Removing network workshop-containers_default
 ```
 
@@ -539,6 +539,135 @@ Removing network workshop-containers_default
 
 Durable %SYS ensures you can persist instance-specific data for containerized instances of InterSystems IRIS on durable storage.
 
+By default, changes made inside a container may be lost when the container is removed and recreated. Durable %SYS addresses this by storing supported system data, such as security settings, users, roles, and other instance-specific configurations, in a persist directory.
+
+This is particularly useful in Docker environments, where containers can be rebuilt or replaced without losing their persisted system configuration. Durable %SYS does not automatically persist all application databases, which may require separate persistent storage.
+
+In this example, the `ISC_DATA_DIRECTORY` environment variable enables durable %SYS, while a Docker bind mount stores the persistent data in the local `shared/durable` directory.
+
 * (m.1) Edit [docker-compose.yml](docker-compose.yml) and un-comment the `environment` section. This will enable durable %SYS in the IRIS instance, storing the configuration data in `shared/durable`.
 
 * (m.2) Run again the steps in the previous example and notice the changes in `shared/durable`.
+
+### (n). Using CPF Merge for IRIS Configuration
+
+The CPF Merge (Configuration Parameters File Merge) is an IRIS startup mechanism that allows you to apply custom configuration parameters to an InterSystems IRIS instance using an external configuration file. 
+
+InterSystems IRIS uses a configuration file called iris.cpf to define instance-specific settings, including network ports, memory allocation, database configuration, and other system parameters. So, CPF Merge allows configuration changes to be applied without directly modifying the original iris.cpf.
+
+This is particularly useful in containerized environments, where configuration should be automated, reproducible, and easy to maintain.
+
+A CPF merge file contains only the configuration sections and parameters that need to be modified. During the merge process, IRIS applies these settings to its configuration.
+
+The general workflow of using CPF Merge with Docker is:
+
+1. Create a CPF merge file containing the required configuration changes.
+
+2. Make the file available inside the IRIS container.
+
+3. Configure the container initialization process to apply the merge file.
+
+4. Start IRIS and verify that the configuration changes have been applied.
+
+Benefits of CPF Merge: 
+
+* Automated configuration: apply IRIS settings without manually editing the Management Portal.
+
+* Reproducibility: use the same configuration across different environments
+
+* Maintainability: keep configuration changes separate from the original iris.cpf.
+
+There are some considerations:
+
+* CPF Merge modifies IRIS configuration parameters, but it does not replace Docker port publishing. 
+
+* Additionally, not every IRIS configuration setting is managed through CPF Merge. Some settings require ObjectScript configuration APIs or other mechanisms.
+
+In this example, the merge file [config/merge.cpf](config/merge.cpf) applies the following changes when IRIS starts:
+
+* `[config]` section: memory settings — 256 MB of database cache for 8 KB blocks (`globals`), 64 MB of routine cache (`routines`) and 64 MB of generic memory heap (`gmheap`, in KB).
+* `[Actions]` section: creates two databases (`DOCKER_DATA` and `DOCKER_CODE`) and a new namespace `DOCKER` that uses them, with Interoperability enabled (`Interop=1`).
+
+```
+[config]
+globals=0,0,256,0,0,0
+gmheap=65536
+routines=64
+
+[Actions]
+CreateDatabase:Name=DOCKER_DATA,Directory=/usr/irissys/mgr/DOCKER_DATA
+CreateDatabase:Name=DOCKER_CODE,Directory=/usr/irissys/mgr/DOCKER_CODE
+CreateNamespace:Name=DOCKER,Globals=DOCKER_DATA,Routines=DOCKER_CODE,Interop=1
+```
+
+* (n.1) Have a look at [config/merge.cpf](config/merge.cpf) and try to figure out what each line does.
+
+* (n.2) If your IRIS container is running, stop it:
+
+```
+docker-compose down
+```
+
+* (n.3) Edit [docker-compose.yml](docker-compose.yml) and un-comment the lines related to the merge file:
+  * `- ./config:/config` in the `volumes` section: makes the local `config` folder (with `merge.cpf`) available inside the container in `/config`.
+  * `environment:` (if you did not already un-comment it in the previous example) and `- ISC_CPF_MERGE_FILE=/config/merge.cpf`: tells IRIS which merge file to apply at startup.
+
+  CPF Merge does **not** require durable %SYS: the `- ISC_DATA_DIRECTORY=/shared/durable` line can stay commented. Your `docker-compose.yml` should look like this (keep `command` un-commented if you are running Docker on Windows):
+
+```yaml
+services:
+  iris:
+    image: containers.intersystems.com/intersystems/iris-community:latest-em
+    container_name: iris
+    ports:
+    - "1972:1972"
+    - "52773:52773"
+    volumes:
+    - ./shared:/shared
+    - ./config:/config
+
+    #command: --check-caps false --ISCAgent false
+    environment:
+    #- ISC_DATA_DIRECTORY=/shared/durable
+    - ISC_CPF_MERGE_FILE=/config/merge.cpf
+```
+
+> If you also un-comment `- ISC_DATA_DIRECTORY=/shared/durable` (durable %SYS from the previous example), the merge file is applied in the same way. The difference is where the instance configuration file `iris.cpf` is stored (see step n.7).
+
+* (n.4) Start the IRIS container again:
+
+```
+docker-compose up -d
+```
+
+* (n.5) Have a look at the container logs and check that IRIS started without errors. The memory allocation messages should now show the values defined in the merge file (256 MB of global buffers and 64 MB of routine buffers):
+
+```
+docker logs iris
+```
+
+* (n.6) Access the IRIS Management Portal at http://localhost:52773/csp/sys/UtilHome.csp and check the changes:
+
+  * **Memory**: go to *System Administration > Configuration > System Configuration > Memory and Startup*. The memory allocated for the 8 KB database cache should be `256` MB and the routine cache should be `64` MB.
+  * **Generic memory heap**: go to *System Administration > Configuration > Additional Settings > Advanced Memory*. The `gmheap` value should be `65536` (KB).
+  * **Databases**: go to *System Administration > Configuration > System Configuration > Local Databases*. You should see the new `DOCKER_DATA` and `DOCKER_CODE` databases, in the directories defined in the merge file.
+  * **Namespace**: go to *System Administration > Configuration > System Configuration > Namespaces*. You should see the new `DOCKER` namespace, using `DOCKER_DATA` for globals and `DOCKER_CODE` for routines.
+  * **Interoperability**: go to the *Interoperability* menu and change to the `DOCKER` namespace (using the namespace selector at the top of the page). The namespace is available because it was created with `Interop=1`.
+
+* (n.7) The merged configuration is also written to the instance configuration file `iris.cpf`. Look for the `[config]` values and the new `DOCKER_DATA`, `DOCKER_CODE` and `DOCKER` entries in the `[Databases]` and `[Namespaces]` sections. Its location depends on whether durable %SYS is enabled:
+
+  * **Without durable %SYS** (`ISC_DATA_DIRECTORY` commented): the file is inside the container. Display it with:
+
+```
+docker exec -it iris cat /usr/irissys/iris.cpf
+```
+
+  * **With durable %SYS** (`ISC_DATA_DIRECTORY` un-commented): the file is stored on your local machine. Open `shared/durable/iris.cpf`.
+
+> Without durable %SYS, any change you make manually in the Management Portal is lost when the container is recreated, but the settings in `merge.cpf` are applied again on every startup.
+
+* (n.8) Stop your IRIS container:
+
+```
+docker-compose down
+```

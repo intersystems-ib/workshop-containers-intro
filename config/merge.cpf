@@ -1,0 +1,13 @@
+[config]
+globals=0,0,256,0,0,0
+gmheap=65536
+routines=64
+
+
+[Actions]
+CreateDatabase:Name=DOCKER_DATA,Directory=/usr/irissys/mgr/DOCKER_DATA
+
+CreateDatabase:Name=DOCKER_CODE,Directory=/usr/irissys/mgr/DOCKER_CODE
+
+CreateNamespace:Name=DOCKER,Globals=DOCKER_DATA,Routines=DOCKER_CODE,Interop=1
+
