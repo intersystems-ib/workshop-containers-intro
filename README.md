@@ -141,7 +141,7 @@ docker container ls --all --quiet
 * (b.8) You can also kill all containers, regardless of what state they are in. **Important!**: If you already had containers on your machine before this lab, **carefully** remove this workshop containers individually using their IDs.
 
 ```
-docker container rm -–force $(docker container ls --quiet --all)
+docker container rm --force $(docker container ls --quiet --all)
 ```
 
 ### (c). Writing to containers
@@ -504,6 +504,9 @@ docker compose up -d
  ✔ Network clean-up_containers-intro_default Created                                                                 0.1s
  ✔ Container iris                            Started                                                                 0.7s
 ```
+Note: Docker Compose automatically generates a default network name based on the project name, which usually corresponds to the directory containing the Compose project. Therefore, the network name may vary depending on where the repository is cloned or how the Compose project is named.
+
+For example, in this case the network appears as `clean-up_containers-intro_default`, but you could have `workshop-containers-intro_default` or another name.
 
 * (l.3) Have a look at the IRIS container logs:
 
@@ -639,6 +642,10 @@ docker compose down
  ✔ Container iris                            Removed                                                                                                                                                                                                                                                1.6s
  ✔ Network clean-up_containers-intro_default Removed                                                                                                                                                                                                                                                0.3s 
 ```
+
+Note: Docker Compose automatically generates a default network name based on the project name, which usually corresponds to the directory containing the Compose project. Therefore, the network name may vary depending on where the repository is cloned or how the Compose project is named.
+
+For example, in this case the network appears as `clean-up_containers-intro_default`, but you could have `workshop-containers-intro_default` or another name.
 
 ### (m). Using durable %SYS for data persistence
 
